@@ -1,0 +1,69 @@
+# LendLoop automation stack.
+#   cp .env.example .env   # fill in secrets
+#   ./setup.sh             # starts n8n, imports credential + workflows
+#   docker compose --profile tunnel up -d   # optional public webhook URL
+name: lendloop-n8n
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-latest}
+    restart: unless-stopped
+    ports:
+      # Editor bound to localhost only.
+      - "127.0.0.1:5678:5678"
+    secrets:
+      - n8n_encryption_key
+    environment:
+      # Read from a Docker secret file, so the key is not in the process env
+      # (workflow expressions can read env vars, see below).
+      N8N_ENCRYPTION_KEY_FILE: /run/secrets/n8n_encryption_key
+      # The only value workflows read from env ({{ $env.CONVEX_SITE_URL }}). It is not a secret:
+      # the HMAC secrets and the Discord webhook live in encrypted n8n credentials.
+      CONVEX_SITE_URL: ${CONVEX_SITE_URL:?set CONVEX_SITE_URL in n8n/.env}
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Europe/Paris}
+      TZ: ${GENERIC_TIMEZONE:-Europe/Paris}
+      # Hygiene: no telemetry, prune execution data (it contains first names) after 7 days.
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+    extra_hosts:
+      # Lets n8n reach a Convex backend running on the host (local dev).
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/workflows:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # Optional: expose ONLY the loan-events webhook to the internet so a cloud
+  # Convex deployment can reach this local n8n. Started with --profile tunnel.
+  webhook-gateway:
+    image: caddy:2-alpine
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - n8n
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    # Quick tunnel: prints a random https://*.trycloudflare.com URL in the logs.
+    command: tunnel --no-autoupdate --url http://webhook-gateway:8080
+    depends_on:
+      - webhook-gateway
+
+volumes:
+  n8n_data:
+
+secrets:
+  n8n_encryption_key:
+    environment: N8N_ENCRYPTION_KEY

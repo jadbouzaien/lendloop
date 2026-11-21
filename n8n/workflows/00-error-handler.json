@@ -1,0 +1,87 @@
+{
+  "id": "lendloopErrors01",
+  "name": "LendLoop – Error handler",
+  "description": null,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "642d2421-e44f-53f7-aa4d-c07d5dc27e8b",
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ops alert: workflow, node, error and a link to the execution. No payload data is included.\nconst e = $input.first().json;\nconst exec = e.execution ?? {};\nconst error = exec.error ?? e.trigger?.error ?? {};\nconst lines = [\n  '🚨 **LendLoop automation failed**',\n  `Workflow: ${e.workflow?.name ?? 'unknown'}`,\n  `Node: ${exec.lastNodeExecuted ?? error.node?.name ?? 'n/a'}`,\n  `Error: ${String(error.message ?? 'unknown error').slice(0, 300)}`,\n  exec.url ? `Execution: ${exec.url}` : `Execution id: ${exec.id ?? 'n/a'}`,\n];\nconsole.error(lines.join(' | '));\nreturn [{ json: { content: lines.join('\\n') } }];"
+      },
+      "id": "2dcf1629-1056-50e8-8dc9-24b2bf82e896",
+      "name": "Summarise failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "={{ $json.content }}",
+        "options": {}
+      },
+      "id": "b6ba699e-8608-5ca9-9da1-7a98fc1a88b2",
+      "name": "Discord: alert ops channel",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "lendloopDiscord1",
+          "name": "LendLoop Discord webhook"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Summarise failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarise failure": {
+      "main": [
+        [
+          {
+            "node": "Discord: alert ops channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "pinData": {},
+  "tags": [],
+  "active": false
+}

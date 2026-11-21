@@ -1,0 +1,20 @@
+# Public entry point used by the Cloudflare tunnel. It forwards ONLY the
+# production webhook path to n8n, so the editor UI, REST API and
+# /webhook-test/ endpoints are never exposed to the internet.
+:8080 {
+	request_body {
+		max_size 64KB
+	}
+
+	@loanEvents {
+		method POST
+		path /webhook/lendloop-loan-events
+	}
+	handle @loanEvents {
+		reverse_proxy n8n:5678
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}

@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Warm paper, near-black ink, one muted forest accent used
+ * sparingly. Components use these names, never raw palette colours.
+ */
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-instrument-serif);
+
+  --color-paper: #f7f5f0;
+  --color-surface: #fffefb;
+  --color-ink: #1b1a17;
+  --color-ink-soft: #55524b;
+  --color-muted: #8c887e;
+  --color-line: #e5e1d8;
+  --color-accent: #2e4a3b;
+  --color-accent-soft: #e9efe9;
+  --color-warn: #8a5a14;
+  --color-warn-soft: #f7efe0;
+  --color-danger: #9b2c2c;
+  --color-danger-soft: #f8e9e7;
+}
+
+body {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+
+/* Native date / select controls pick up the ink colour. */
+input,
+select,
+textarea {
+  color-scheme: light;
+  accent-color: var(--color-accent);
+}
